@@ -24,13 +24,12 @@ import { connectSTT } from "./stt.js";
 import { connectTTS } from "./tts.js";
 import { createPlayer } from "./player.js";
 import { TTS } from "./config.js";
+import { echoResponder } from "./respond.js";
 
-// The "response" seam. This demo echoes the user's finished turn back through
-// TTS so the full realtime loop (mic -> STT -> turn detection -> TTS -> barge-in)
-// is exercised without needing an LLM. Swap this function for a call to your LLM
-// — it may return a string or a Promise<string>.
-const echoResponder = (finalTranscript) => finalTranscript;
-
+// `respond` is the "brain" seam (see respond.js). It defaults to echo; the bridge
+// (voice-interop.js) can pass llmResponder instead to route turns through the
+// server-side LLM. A responder may return a string to speak, or stream speech
+// itself via the { speak, flush } sink and honour the { signal } for barge-in.
 export function createConversation({ onState, onTranscript, onLevel, onError, respond = echoResponder }) {
   let state = "idle";
   let mic = null;
@@ -42,6 +41,9 @@ export function createConversation({ onState, onTranscript, onLevel, onError, re
   let currentTurn = "";
   // Guards against a late response being spoken after the user barged in.
   let activeTurnIndex = -1;
+  // AbortController for the response currently being produced, if any. Aborting
+  // it cancels an in-flight LLM request (and its server-side generation).
+  let responseAbort = null;
 
   function setState(next) {
     if (state === next) return;
@@ -55,6 +57,10 @@ export function createConversation({ onState, onTranscript, onLevel, onError, re
   // Done here in JS at the point of detection so the cut-off is instant
   // (Best practice #4 — barge-in is non-negotiable).
   function interrupt() {
+    // Cancel any response still being produced (stops the LLM stream), then kill
+    // audio that's already playing. Both halves matter: (1) stop more text/audio
+    // arriving, (2) stop what's already in the speakers.
+    responseAbort?.abort();
     if (player?.isPlaying) {
       player.flush();
       tts?.clear();
@@ -70,6 +76,7 @@ export function createConversation({ onState, onTranscript, onLevel, onError, re
   function interruptResponse() {
     if (state !== "speaking" && state !== "thinking") return;
     activeTurnIndex = Number.NaN;
+    responseAbort?.abort();
     player?.flush();
     tts?.clear();
     setState("listening");
@@ -124,16 +131,33 @@ export function createConversation({ onState, onTranscript, onLevel, onError, re
     }
     activeTurnIndex = turnIndex;
     setState("thinking");
+
+    // Fresh abort controller for this response so barge-in can cancel it.
+    const controller = new AbortController();
+    responseAbort = controller;
+
     try {
-      const reply = await respond(clean);
+      const reply = await respond(clean, {
+        signal: controller.signal,
+        speak: (t) => tts?.speak(t),
+        flush: () => tts?.flush(),
+      });
       // If the user barged in while we were "thinking", abandon this reply.
       if (activeTurnIndex !== turnIndex) return;
-      tts?.speak(reply);
-      tts?.flush();
+      // A responder either returns a string to speak, or streamed it itself via
+      // the sink above (and returned nothing).
+      if (typeof reply === "string" && reply.trim()) {
+        tts?.speak(reply);
+        tts?.flush();
+      }
       // player.onStart flips us to "speaking"; player.onEnd returns to "listening".
     } catch (err) {
+      // A barge-in aborts the request on purpose — not an error to surface.
+      if (err?.name === "AbortError") return;
       onError?.(err);
       setState("listening");
+    } finally {
+      if (responseAbort === controller) responseAbort = null;
     }
   }
 

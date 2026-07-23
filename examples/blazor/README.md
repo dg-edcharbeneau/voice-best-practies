@@ -23,9 +23,10 @@ rendering.
 | Mic / STT / TTS / player / token / config | [`wwwroot/js/`](VoiceBestPractices.Client/wwwroot/js/) (ported from vanilla) |
 | Audio-thread capture worklet | [`wwwroot/js/pcm-worklet.js`](VoiceBestPractices.Client/wwwroot/js/pcm-worklet.js) |
 | **JS-isolation bridge** — orchestrator callbacks ⇄ .NET | [`wwwroot/js/voice-interop.js`](VoiceBestPractices.Client/wwwroot/js/voice-interop.js) |
-| **Blazor seam** — typed interop wrapper, `DotNetObjectReference`, teardown | [`Voice/ConversationInterop.cs`](VoiceBestPractices.Client/Voice/ConversationInterop.cs) |
+| **Session service** — holds state, owns the interop, the analog of React's `useConversation` | [`Voice/ConversationService.cs`](VoiceBestPractices.Client/Voice/ConversationService.cs) |
+| **Interop wrapper** — typed JS-isolation module, `DotNetObjectReference`, teardown | [`Voice/ConversationInterop.cs`](VoiceBestPractices.Client/Voice/ConversationInterop.cs) |
 | State enum + labels + friendly errors (the "edge" logic, in C#) | [`Voice/ConversationState.cs`](VoiceBestPractices.Client/Voice/ConversationState.cs) |
-| State holder (the analog of React's `useConversation`) | [`Pages/Home.razor.cs`](VoiceBestPractices.Client/Pages/Home.razor.cs) |
+| Thin page — renders service state, forwards clicks, stops on unmount | [`Pages/Home.razor.cs`](VoiceBestPractices.Client/Pages/Home.razor.cs) |
 | UI, split into components | [`Components/`](VoiceBestPractices.Client/Components/) |
 | Token endpoint (holds the API key) | [`Program.cs`](VoiceBestPractices/Program.cs) |
 
@@ -51,9 +52,10 @@ all interop runs in `OnAfterRenderAsync`/event handlers (never during prerender)
 ### Components
 
 - [`Home.razor`](VoiceBestPractices.Client/Pages/Home.razor) — the interactive page.
-  Sets `data-state` on the root (drives all state-based CSS) and lays out the panels;
-  its [`.razor.cs`](VoiceBestPractices.Client/Pages/Home.razor.cs) holds state and
-  wires the interop callbacks.
+  Sets `data-state` on the root (drives all state-based CSS) and lays out the panels.
+  It's a thin view: its [`.razor.cs`](VoiceBestPractices.Client/Pages/Home.razor.cs)
+  injects `ConversationService`, re-renders on its `Changed` event, and stops the
+  session on unmount — no session state or orchestration lives in the page.
 - [`StatusPanel`](VoiceBestPractices.Client/Components/StatusPanel.razor) composes the
   status row, mic meter, and controls.
 - [`StatusIndicator`](VoiceBestPractices.Client/Components/StatusIndicator.razor) ·
@@ -106,8 +108,46 @@ browser where the audio actually is, and JS interop is a same-process call.
 
 ## Make it a real assistant
 
-Replace `echoResponder` in
-[`wwwroot/js/conversation.js`](VoiceBestPractices.Client/wwwroot/js/conversation.js)
-with a call to your LLM — it can return a `string` or a `Promise<string>`, or you can
-stream tokens straight into `tts.speak()` as they arrive. The capture / turn-taking /
-barge-in / playback machinery is unchanged.
+The "brain" is the `respond` seam in
+[`wwwroot/js/respond.js`](VoiceBestPractices.Client/wwwroot/js/respond.js). Two
+responders ship, and echo is the default:
+
+- **`echoResponder`** — says your finished turn back (no LLM needed).
+- **`llmResponder`** — POSTs the finished turn to the server's `/api/chat`, which
+  streams the reply back token-by-token; the client speaks complete sentences as
+  they arrive.
+
+**Why the LLM call is on the server, not in C#:** this is Blazor *WebAssembly*, so
+your C# runs in the browser. Putting the model call in a `.Client` service would
+leak the model key exactly like a client-side Deepgram key would. So the LLM lives
+in the **server project** ([`Program.cs`](VoiceBestPractices/Program.cs), the
+`POST /api/chat` endpoint) behind `Microsoft.Extensions.AI`'s `IChatClient` — the
+key stays server-side, same rule as the Deepgram token. `IChatClient` is
+provider-agnostic (OpenAI, Azure OpenAI, or any OpenAI-compatible endpoint via
+`OpenAI:Endpoint`).
+
+**Turn it on:**
+
+```sh
+# In addition to DEEPGRAM_API_KEY, configure a model (server-side only):
+dotnet user-secrets set OpenAI:ApiKey sk-...        # or export OpenAI__ApiKey=sk-...
+# optional: dotnet user-secrets set OpenAI:Model gpt-4o-mini
+```
+
+Then flip the one-line switch in
+[`wwwroot/js/voice-interop.js`](VoiceBestPractices.Client/wwwroot/js/voice-interop.js):
+
+```js
+const respond = llmResponder;   // was: echoResponder
+```
+
+Without `OpenAI:ApiKey`, `/api/chat` returns **501** and the echo demo runs
+untouched.
+
+**Barge-in cancels the LLM too.** The `respond` contract passes an `AbortSignal`;
+`interrupt()` / `interruptResponse()` abort it, which aborts the `fetch` — and
+because the server's streaming loop honors the request-aborted `CancellationToken`,
+generation stops server-side as well. No tokens are spent finishing a turn the user
+already talked over. (`EagerEndOfTurn` in
+[`conversation.js`](VoiceBestPractices.Client/wwwroot/js/conversation.js) is the spot
+to *pre-warm* the request for even lower latency.)

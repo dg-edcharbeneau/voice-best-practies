@@ -21,15 +21,19 @@ The one interactive page, `Home.razor`, opts in with
 would render nothing useful and risk double-initialization.
 
 ## Project structure
-- **VoiceBestPractices** (server): hosts the app and exposes `GET /api/token`, which
-  mints short-lived Deepgram tokens. The Deepgram API key lives ONLY here.
+- **VoiceBestPractices** (server): hosts the app and exposes `GET /api/token` (mints
+  short-lived Deepgram tokens) and `POST /api/chat` (optional streaming LLM reply via
+  `Microsoft.Extensions.AI` `IChatClient`). All provider API keys live ONLY here.
 - **VoiceBestPractices.Client** (WebAssembly): the voice UI.
-  - `Pages/Home.razor` (+ `.razor.cs`) — the state-holding seam over the interop wrapper.
+  - `Pages/Home.razor` (+ `.razor.cs`) — a thin view: injects `ConversationService`,
+    re-renders on its `Changed` event, stops the session on unmount. No state/logic here.
   - `Components/` — presentational components (StatusPanel, StatusIndicator, MicMeter,
     Controls, Transcript, ErrorBanner).
-  - `Voice/` — `ConversationInterop` (typed JS-isolation wrapper) and `ConversationState`.
+  - `Voice/` — `ConversationService` (scoped; holds session state + owns the interop),
+    `ConversationInterop` (typed JS-isolation wrapper), and `ConversationState`.
   - `wwwroot/js/` — the framework-agnostic realtime core (ported from the vanilla/React
-    examples) plus `voice-interop.js`, the isolated bridge module Blazor imports.
+    examples), `respond.js` (the pluggable "brain": echo default + streaming LLM
+    variant), and `voice-interop.js`, the isolated bridge module Blazor imports.
 
 ## JS interop
 Two flavors of **JS isolation**, both ES modules with no `window.*` globals:
@@ -49,9 +53,16 @@ do all interop in `OnAfterRenderAsync`/event handlers (never during prerender); 
 (environment variable or user-secrets) — never from `appsettings.json`, never shipped
 to the browser. Token TTL is `Deepgram:TokenTtlSeconds` (default 60).
 
+`POST /api/chat` is enabled only when `OpenAI:ApiKey` is configured (env/user-secrets);
+otherwise it returns 501 and the app runs the echo default. Model is `OpenAI:Model`
+(default `gpt-4o-mini`); `OpenAI:Endpoint` optionally targets Azure OpenAI or another
+OpenAI-compatible service. To use the LLM at runtime, also switch `respond` to
+`llmResponder` in `wwwroot/js/voice-interop.js`.
+
 ```sh
 # dev
 export DEEPGRAM_API_KEY=your_key   # or: dotnet user-secrets set DEEPGRAM_API_KEY your_key
+export OpenAI__ApiKey=sk-...       # optional; enables /api/chat
 dotnet run
 ```
 
@@ -63,4 +74,6 @@ dotnet run
 - Don't put interactive components in the server project — they fail after WebAssembly handoff.
 - Don't set `@rendermode` on `<Routes>` in `App.razor` — that makes interactivity global.
 - Don't call JS interop during prerender or in `OnInitialized` — JS isn't available yet.
+- Don't put session state or orchestration in components — it lives in `ConversationService`;
+  components render its state and forward events.
 - Don't put the Deepgram API key in `appsettings.json` or any client-side code.

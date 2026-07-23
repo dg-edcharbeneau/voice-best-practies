@@ -2,10 +2,11 @@
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @implements IAsyncDisposable
 
-@* The whole demo is driven by one interop wrapper (the Blazor analog of React's
-   useConversation hook). `data-state` on the root drives all the state-based
-   styling (dot color, meter accent) from CSS — the same contract as the vanilla
-   and React examples, so the stylesheet is shared almost verbatim.
+@* A thin view over ConversationService (injected in the code-behind). The page
+   reads state from the service and forwards button clicks to it; the service owns
+   the state machine and interop. `data-state` on the root drives all the
+   state-based styling (dot color, meter accent) from CSS — the same contract as
+   the vanilla and React examples, so the stylesheet is shared almost verbatim.
 
    Prerender is disabled: every capability here (mic, Web Audio, WebSockets) is
    browser-only, so there is nothing meaningful to render on the server first
@@ -13,7 +14,7 @@
 
 <PageTitle>Voice UI Best Practices — Blazor</PageTitle>
 
-<main id="app" data-state="@_state.DataAttribute()">
+<main id="app" data-state="@Conversation.State.DataAttribute()">
     <header class="hero">
         <h1>Voice UI Best Practices</h1>
         <p class="subtitle">
@@ -24,15 +25,15 @@
         </p>
     </header>
 
-    <StatusPanel State="_state"
-                 Level="_level"
-                 OnStart="StartAsync"
-                 OnStop="StopAsync"
-                 OnInterrupt="InterruptAsync" />
+    <StatusPanel State="Conversation.State"
+                 Level="Conversation.Level"
+                 OnStart="Conversation.StartAsync"
+                 OnStop="Conversation.StopAsync"
+                 OnInterrupt="Conversation.InterruptResponseAsync" />
 
-    <ErrorBanner Message="@_error" />
+    <ErrorBanner Message="@Conversation.Error" />
 
-    <Transcript Committed="_committed" Interim="@_interim" />
+    <Transcript Committed="Conversation.Committed" Interim="@Conversation.Interim" />
 
     <footer class="hint">
         <p>

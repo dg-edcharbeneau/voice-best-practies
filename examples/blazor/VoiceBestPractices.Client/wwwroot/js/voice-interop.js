@@ -12,6 +12,13 @@
 // The orchestrator (conversation.js) is unchanged and unaware of .NET.
 
 import { createConversation } from "./conversation.js";
+import { echoResponder, llmResponder } from "./respond.js";
+
+// The "brain". `echoResponder` (the default) speaks your finished turn back so the
+// full realtime loop runs with no LLM configured. Switch to `llmResponder` to route
+// turns through the server-side /api/chat endpoint (streamed + barge-in-cancellable).
+// Requires an LLM configured on the server (OpenAI:ApiKey) — see the README.
+const respond = echoResponder;
 
 // .NET [JSInvokable] method names live in one place so a typo can't silently
 // break a callback at runtime (use-js-interop best practice).
@@ -34,6 +41,7 @@ class ConversationBridge {
   constructor(dotNetRef) {
     this.#dotNet = dotNetRef;
     this.#convo = createConversation({
+      respond,
       onState: (state) => this.#invoke(ON_STATE, state),
       onTranscript: ({ interim, committed }) =>
         this.#invoke(ON_TRANSCRIPT, { interim, committed }),
