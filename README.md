@@ -14,9 +14,10 @@ one; every example below implements them.
 |---|---|---|
 | [`examples/basic-html-js`](examples/basic-html-js) | Vanilla HTML/CSS/JS + a tiny Node token server. No bundler. | ✅ Ready |
 | [`examples/reactjs`](examples/reactjs) | React 19 + Vite (same behaviors, componentized). | ✅ Ready |
+| [`examples/blazor`](examples/blazor) | Blazor WebAssembly (.NET 10) + ASP.NET Core token host, using JS isolation for interop. | ✅ Ready |
 
-Each example is self-contained: its own `package.json`, `.env`, and README with
-setup steps. Start with the one that matches your stack.
+Each example is self-contained, with its own README and setup steps. Start with
+the one that matches your stack.
 
 ## The shared guide
 
@@ -29,7 +30,8 @@ playback, teardown, and accessibility.
 
 New stacks are welcome. Keep them consistent so the collection reads as one set:
 
-1. Create `examples/<stack-name>/` with its own `package.json` and README.
+1. Create `examples/<stack-name>/` self-contained (its own manifest — `package.json`,
+   `.csproj`, etc. — and a README).
 2. Implement the same behaviors and states described in
    [BEST_PRACTICES.md](BEST_PRACTICES.md) — don't restate the guide, link to it.
 3. Keep the Deepgram API key server-side (mint short-lived browser tokens).
