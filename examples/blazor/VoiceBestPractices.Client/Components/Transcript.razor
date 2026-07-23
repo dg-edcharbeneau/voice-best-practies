@@ -1,0 +1,63 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Live transcript: finished turns stack as list items; the in-progress turn
+   shows below as italic interim text (announced via aria-live). As turns are
+   appended we keep the list scrolled to the newest one.
+
+   This uses the *collocated module* flavor of JS isolation: Transcript.razor.js
+   sits next to this file and is imported on demand — no window globals, no
+   <script> tag. (The main voice feature uses the imported-wrapper flavor; see
+   Voice/ConversationInterop.cs.) *@
+
+<section class="panel" aria-label="Transcript">
+    <h2 class="panel-title">Transcript</h2>
+    <ul @ref="_list" class="transcript">
+        @foreach (var (text, index) in Committed.Select((t, i) => (t, i)))
+        {
+            <li @key="index" class="turn">@text</li>
+        }
+    </ul>
+    <p class="interim" aria-live="polite">@Interim</p>
+</section>
+
+@code {
+    private const string ModulePath = "./Components/Transcript.razor.js";
+    private const string ScrollToEndMethod = "scrollToEnd";
+
+    [Parameter, EditorRequired] public IReadOnlyList<string> Committed { get; set; } = [];
+    [Parameter] public string? Interim { get; set; }
+
+    private ElementReference _list;
+    private IJSObjectReference? _module;
+    private int _renderedCount;
+
+    // JS interop only runs after render — never during prerender. We scroll only
+    // when a new turn has actually been committed (not on every interim update).
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Committed.Count == _renderedCount)
+        {
+            return;
+        }
+
+        _renderedCount = Committed.Count;
+        _module ??= await JS.InvokeAsync<IJSObjectReference>("import", ModulePath);
+        await _module.InvokeVoidAsync(ScrollToEndMethod, _list);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_module is not null)
+            {
+                await _module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Runtime already gone — nothing to dispose on the JS side.
+        }
+    }
+}

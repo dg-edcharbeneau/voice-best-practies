@@ -1,0 +1,25 @@
+@using System.Globalization
+
+@* Decorative mic-level meter (VAD feedback, Best practice #5). Purely visual, so
+   aria-hidden — the meaning lives in the status text. `Level` is RMS 0..1; we
+   scale it for a livelier bar and clamp. At idle we force it to zero so it rests
+   flat. Only the dynamic scalar is passed inline as a CSS custom property; the
+   actual transform rule lives in CSS (meter-fill { transform: scaleX(var(--level)) }). *@
+
+<div class="meter" aria-hidden="true">
+    <div class="meter-fill" style="--level:@ScaledLevel"></div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public double Level { get; set; }
+    [Parameter, EditorRequired] public ConversationState State { get; set; }
+
+    private string ScaledLevel
+    {
+        get
+        {
+            var scaled = State == ConversationState.Idle ? 0 : Math.Min(1, Level * 3);
+            return scaled.ToString("0.000", CultureInfo.InvariantCulture);
+        }
+    }
+}

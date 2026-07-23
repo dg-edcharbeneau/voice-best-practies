@@ -1,0 +1,12 @@
+@* The single visible source of truth for the state machine. The colored dot is
+   decorative (aria-hidden); the text carries the meaning and is announced via
+   aria-live (Best practice #9). Dot color/animation come from [data-state] in CSS. *@
+
+<div class="status-row">
+    <span class="dot" aria-hidden="true"></span>
+    <span id="status" role="status" aria-live="polite">@State.Label()</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ConversationState State { get; set; }
+}

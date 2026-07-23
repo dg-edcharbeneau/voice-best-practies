@@ -1,0 +1,28 @@
+@* The three real <button>s. Enabled/disabled is derived purely from the machine
+   state so the buttons can never drift out of sync with what's actually possible:
+     Start         — only when not already running
+     Stop speaking — only when there's a response in flight to cut off
+     Stop          — whenever a session is running (full teardown)
+   Events flow up via EventCallback (never Action/Func) per component best practices. *@
+
+<div class="controls">
+    <button type="button" class="btn btn-primary" @onclick="OnStart" disabled="@Running">
+        Start listening
+    </button>
+    <button type="button" class="btn" @onclick="OnInterrupt" disabled="@(!CanInterrupt)">
+        Stop speaking
+    </button>
+    <button type="button" class="btn" @onclick="OnStop" disabled="@(!Running)">
+        Stop
+    </button>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ConversationState State { get; set; }
+    [Parameter] public EventCallback OnStart { get; set; }
+    [Parameter] public EventCallback OnStop { get; set; }
+    [Parameter] public EventCallback OnInterrupt { get; set; }
+
+    private bool Running => State is not (ConversationState.Idle or ConversationState.Error);
+    private bool CanInterrupt => State is ConversationState.Speaking or ConversationState.Thinking;
+}

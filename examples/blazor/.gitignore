@@ -1,0 +1,6 @@
+# .NET build output
+bin/
+obj/
+
+# User-specific / secrets
+*.user

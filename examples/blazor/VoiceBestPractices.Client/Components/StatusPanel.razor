@@ -1,0 +1,17 @@
+@* Groups the status text, the mic meter, and the controls into one panel — the
+   interactive heart of the demo. It only composes children and forwards data
+   down / events up; it holds no state of its own. *@
+
+<section class="panel status-panel" aria-label="Session status">
+    <StatusIndicator State="State" />
+    <MicMeter Level="Level" State="State" />
+    <Controls State="State" OnStart="OnStart" OnStop="OnStop" OnInterrupt="OnInterrupt" />
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ConversationState State { get; set; }
+    [Parameter, EditorRequired] public double Level { get; set; }
+    [Parameter] public EventCallback OnStart { get; set; }
+    [Parameter] public EventCallback OnStop { get; set; }
+    [Parameter] public EventCallback OnInterrupt { get; set; }
+}

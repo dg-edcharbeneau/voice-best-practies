@@ -1,0 +1,11 @@
+@* Friendly, in-UI error surface (Best practice #10). role="alert" so assistive
+   tech announces it immediately. Renders nothing when there's no error. *@
+
+@if (!string.IsNullOrEmpty(Message))
+{
+    <p class="error" role="alert">@Message</p>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+}

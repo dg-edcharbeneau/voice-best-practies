@@ -1,0 +1,45 @@
+@page "/"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@implements IAsyncDisposable
+
+@* The whole demo is driven by one interop wrapper (the Blazor analog of React's
+   useConversation hook). `data-state` on the root drives all the state-based
+   styling (dot color, meter accent) from CSS — the same contract as the vanilla
+   and React examples, so the stylesheet is shared almost verbatim.
+
+   Prerender is disabled: every capability here (mic, Web Audio, WebSockets) is
+   browser-only, so there is nothing meaningful to render on the server first
+   (support-prerendering guidance — don't prerender a browser-only component). *@
+
+<PageTitle>Voice UI Best Practices — Blazor</PageTitle>
+
+<main id="app" data-state="@_state.DataAttribute()">
+    <header class="hero">
+        <h1>Voice UI Best Practices</h1>
+        <p class="subtitle">
+            Realtime microphone → Deepgram Flux (STT) → turn detection → Deepgram
+            Speak (TTS), with start/stop and barge-in — the same behaviors as the
+            vanilla and React examples, built with <strong>Blazor WebAssembly</strong>.
+            This demo <strong>echoes</strong> each finished turn back to you.
+        </p>
+    </header>
+
+    <StatusPanel State="_state"
+                 Level="_level"
+                 OnStart="StartAsync"
+                 OnStop="StopAsync"
+                 OnInterrupt="InterruptAsync" />
+
+    <ErrorBanner Message="@_error" />
+
+    <Transcript Committed="_committed" Interim="@_interim" />
+
+    <footer class="hint">
+        <p>
+            Try speaking, then pausing — Flux detects the end of your turn and the
+            demo speaks your words back. Start talking again <em>while it's
+            speaking</em> (or hit <strong>Stop speaking</strong>) to cut it off
+            instantly.
+        </p>
+    </footer>
+</main>

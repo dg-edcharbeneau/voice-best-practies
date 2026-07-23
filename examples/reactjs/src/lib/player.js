@@ -1,0 +1,78 @@
+// Gap-free playback of streamed linear16 PCM using the Web Audio API.
+//
+// Best practice #7 (glitch-free playback): we schedule each incoming chunk on a
+// running timeline (`nextTime`) instead of playing them "now", so consecutive
+// chunks butt up against each other sample-accurately with no clicks or gaps.
+//
+// Best practice #4 (barge-in): flush() stops every scheduled source instantly,
+// which is how we cut the agent off the moment the user starts talking.
+
+export function createPlayer({ sampleRate, onStart, onEnd }) {
+  const ctx = new AudioContext();
+  const sources = new Set();
+  let nextTime = 0;
+  let playing = false;
+
+  function enqueue(arrayBuffer) {
+    const pcm = new Int16Array(arrayBuffer);
+    if (pcm.length === 0) return;
+
+    const float = new Float32Array(pcm.length);
+    for (let i = 0; i < pcm.length; i++) float[i] = pcm[i] / 0x8000;
+
+    const buffer = ctx.createBuffer(1, float.length, sampleRate);
+    buffer.copyToChannel(float, 0);
+
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(ctx.destination);
+
+    // Small lead so the very first chunk doesn't start in the past.
+    const now = ctx.currentTime;
+    if (nextTime < now) nextTime = now + 0.02;
+    src.start(nextTime);
+    nextTime += buffer.duration;
+
+    sources.add(src);
+    if (!playing) {
+      playing = true;
+      onStart?.();
+    }
+    src.onended = () => {
+      sources.delete(src);
+      if (sources.size === 0 && playing) {
+        playing = false;
+        onEnd?.();
+      }
+    };
+  }
+
+  function flush() {
+    for (const src of sources) {
+      try {
+        src.onended = null;
+        src.stop();
+      } catch {}
+    }
+    sources.clear();
+    nextTime = 0;
+    if (playing) {
+      playing = false;
+      onEnd?.();
+    }
+  }
+
+  return {
+    /** Must be called from a user gesture to satisfy autoplay policies. */
+    resume: () => ctx.resume(),
+    enqueue,
+    flush,
+    get isPlaying() {
+      return playing;
+    },
+    close: () => {
+      flush();
+      ctx.close();
+    },
+  };
+}
