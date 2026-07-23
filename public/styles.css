@@ -1,0 +1,267 @@
+/* Minimal, dependency-free styling. Theme-aware (light/dark) and respects
+   prefers-reduced-motion (Best practice #9). State-driven accents come from the
+   [data-state] attribute on #app, set by the UI layer. */
+
+:root {
+  --bg: #f7f8fa;
+  --panel: #ffffff;
+  --text: #14161a;
+  --muted: #626873;
+  --border: #e3e6ea;
+  --accent: #4b5cff;
+  --accent-contrast: #ffffff;
+  --idle: #9aa0aa;
+  --listening: #1fb46b;
+  --thinking: #f0a020;
+  --speaking: #4b5cff;
+  --error: #e5484d;
+  --radius: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0f13;
+    --panel: #17191f;
+    --text: #eef0f4;
+    --muted: #9aa0aa;
+    --border: #262a31;
+    --accent: #7c8bff;
+    --accent-contrast: #0e0f13;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+#app {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+}
+
+.hero h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.9rem;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0 0 1.75rem;
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.panel-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+/* --- status --------------------------------------------------------------- */
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--idle);
+  flex: none;
+}
+
+[data-state="listening"] .dot {
+  background: var(--listening);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+[data-state="thinking"] .dot {
+  background: var(--thinking);
+  animation: pulse 1s ease-in-out infinite;
+}
+[data-state="speaking"] .dot {
+  background: var(--speaking);
+  animation: pulse 0.8s ease-in-out infinite;
+}
+[data-state="connecting"] .dot {
+  background: var(--thinking);
+}
+[data-state="error"] .dot {
+  background: var(--error);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.8);
+  }
+}
+
+/* --- mic meter ------------------------------------------------------------ */
+.meter {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.meter-fill {
+  height: 100%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+  background: var(--listening);
+  transition: transform 80ms linear;
+}
+
+[data-state="speaking"] .meter-fill {
+  background: var(--speaking);
+}
+
+/* --- controls ------------------------------------------------------------- */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.btn {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.7rem 1.2rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 120ms ease, opacity 120ms ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: transparent;
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  background: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --- transcript ----------------------------------------------------------- */
+.transcript {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.turn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.interim {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-style: italic;
+  min-height: 1.5em;
+}
+
+/* --- error / hint --------------------------------------------------------- */
+.error {
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  border: 1px solid var(--error);
+  color: var(--error);
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  margin: 0 0 1.25rem;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+/* --- small screens -------------------------------------------------------- */
+@media (max-width: 480px) {
+  #app {
+    padding: 1.5rem 1rem 3rem;
+  }
+
+  .hero h1 {
+    font-size: 1.55rem;
+  }
+
+  .panel {
+    padding: 1rem;
+  }
+
+  /* Stack the controls and let each button span the row for a big tap target. */
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none !important;
+  }
+  .meter-fill {
+    transition: none;
+  }
+}

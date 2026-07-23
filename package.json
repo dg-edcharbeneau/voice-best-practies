@@ -1,0 +1,28 @@
+{
+  "name": "voice-ui-best-practices",
+  "version": "1.0.0",
+  "description": "A reference implementation and guide for realtime voice UI behavior, built on Deepgram streaming STT (Flux) and TTS.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/server.mjs",
+    "dev": "node --watch server/server.mjs"
+  },
+  "keywords": [
+    "deepgram",
+    "voice",
+    "speech-to-text",
+    "text-to-speech",
+    "flux",
+    "realtime",
+    "voice-ui",
+    "barge-in"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@deepgram/sdk": "^5.5.0",
+    "dotenv": "^16.4.5"
+  }
+}

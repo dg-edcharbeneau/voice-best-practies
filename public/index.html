@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Voice UI Best Practices — Deepgram</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main id="app" data-state="idle">
+      <header class="hero">
+        <h1>Voice UI Best Practices</h1>
+        <p class="subtitle">
+          Realtime microphone → Deepgram Flux (STT) → turn detection →
+          Deepgram Speak (TTS), with start/stop and barge-in. This demo
+          <strong>echoes</strong> each finished turn back to you.
+        </p>
+      </header>
+
+      <!-- Status: the single visible source of truth for the state machine. -->
+      <section class="panel status-panel" aria-label="Session status">
+        <div class="status-row">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="status" role="status" aria-live="polite">Idle</span>
+        </div>
+
+        <!-- Decorative mic level meter (VAD feedback). Meaning lives in #status. -->
+        <div class="meter" aria-hidden="true">
+          <div id="meter-fill" class="meter-fill"></div>
+        </div>
+
+        <div class="controls">
+          <button id="start" type="button" class="btn btn-primary">
+            Start listening
+          </button>
+          <button id="interrupt" type="button" class="btn" disabled>
+            Stop speaking
+          </button>
+          <button id="stop" type="button" class="btn" disabled>Stop</button>
+        </div>
+      </section>
+
+      <p id="error" class="error" role="alert" hidden></p>
+
+      <!-- Live transcript. Interim text updates in place; finished turns append. -->
+      <section class="panel" aria-label="Transcript">
+        <h2 class="panel-title">Transcript</h2>
+        <ul id="transcript" class="transcript"></ul>
+        <p id="interim" class="interim" aria-live="polite"></p>
+      </section>
+
+      <footer class="hint">
+        <p>
+          Try speaking, then pausing — Flux detects the end of your turn and the
+          demo speaks your words back. Start talking again <em>while it's
+          speaking</em> to see barge-in cut it off instantly.
+        </p>
+      </footer>
+    </main>
+
+    <script type="module" src="/src/app.js"></script>
+  </body>
+</html>
